@@ -1,0 +1,57 @@
+name: Build Lumiaura APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Verify Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_SDK_ROOT:-}"
+          test -d "$ANDROID_SDK_ROOT/platforms/android-35"
+          test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
+          echo "Android SDK is available."
+          echo "No SDK installation or license acceptance is performed."
+
+      - name: Extract Lumiaura
+        shell: bash
+        run: |
+          set -euo pipefail
+          unzip -q Lumiaura.zip
+          test -f Lumiaura/settings.gradle.kts
+          test -f Lumiaura/app/build.gradle.kts
+          echo "Lumiaura project extracted successfully."
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+          cache-disabled: true
+
+      - name: Build APK
+        working-directory: Lumiaura
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lumiaura-debug-apk
+          path: Lumiaura/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
