@@ -28,7 +28,6 @@ jobs:
           test -d "$ANDROID_SDK_ROOT/platforms/android-35"
           test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
           echo "Android SDK is available."
-          echo "No SDK installation or license acceptance is performed."
 
       - name: Extract Lumiaura
         shell: bash
@@ -37,7 +36,39 @@ jobs:
           unzip -q Lumiaura.zip
           test -f Lumiaura/settings.gradle.kts
           test -f Lumiaura/app/build.gradle.kts
-          echo "Lumiaura project extracted successfully."
+
+      - name: Fix Java/Kotlin JVM target
+        working-directory: Lumiaura
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path("app/build.gradle.kts")
+          s = p.read_text()
+
+          marker = "    buildFeatures { compose = true }"
+
+          fix = """    compileOptions {
+              sourceCompatibility = JavaVersion.VERSION_17
+              targetCompatibility = JavaVersion.VERSION_17
+          }
+
+          """
+
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
+              s = s.replace(marker, fix + marker)
+
+          if 'kotlinOptions { jvmTarget = "17" }' not in s:
+              s = s.replace(
+                  marker,
+                  '    kotlinOptions { jvmTarget = "17" }\\n\\n' + marker
+              )
+
+          p.write_text(s)
+          PY
+
+          echo "JVM targets fixed to Java/Kotlin 17."
 
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v4
